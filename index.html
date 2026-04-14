@@ -6,48 +6,40 @@
     <title>Samura Mebel</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        /* Сбрасываем лишнее и задаем светлую тему */
-        * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-        body { 
-            background-color: #f3f4f6; /* Светло-серый фон */
-            color: #111827;
-            margin: 0; padding: 16px; padding-bottom: 90px;
-        }
+        * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background-color: #f3f4f6; color: #111827; margin: 0; padding: 16px; padding-bottom: 90px; }
         h1 { text-align: center; font-size: 24px; margin-bottom: 20px; color: #1f2937; }
         
-        /* Сетка из двух колонок */
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
         
-        /* Карточка товара */
-        .card {
-            background-color: #ffffff;
-            border-radius: 16px;
-            overflow: hidden;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            display: flex; flex-direction: column;
-            transition: transform 0.1s;
-            border: 2px solid transparent; /* Подготовка для рамки выделения */
-        }
-        .card:active { transform: scale(0.96); }
-        
-        /* Блок с фото */
-        .img-box {
-            width: 100%; aspect-ratio: 1 / 1;
-            background-color: #e5e7eb;
-            display: flex; align-items: center; justify-content: center;
-            position: relative;
-        }
+        /* Карточка в каталоге */
+        .card { background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06); display: flex; flex-direction: column; cursor: pointer; }
+        .card:active { opacity: 0.8; }
+        .img-box { width: 100%; aspect-ratio: 1 / 1; background-color: #e5e7eb; display: flex; align-items: center; justify-content: center; position: relative; }
         .img-box img { width: 100%; height: 100%; object-fit: cover; position: relative; z-index: 2; }
-        .no-photo { position: absolute; color: #9ca3af; font-size: 14px; z-index: 1; }
-        
-        /* Текст внутри карточки */
-        .info { padding: 12px; display: flex; flex-direction: column; flex-grow: 1; }
+        .info { padding: 12px; }
         .title { font-size: 15px; font-weight: 600; margin: 0 0 4px 0; }
-        .specs { font-size: 12px; color: #6b7280; margin: 0 0 10px 0; flex-grow: 1; line-height: 1.3;}
         .price { font-size: 16px; font-weight: 700; color: #2563eb; margin: 0; }
         
-        /* Текст загрузки */
-        .loading { grid-column: span 2; text-align: center; color: #6b7280; padding: 40px 0; font-size: 15px; }
+        /* ВСПЛЫВАЮЩЕЕ ОКНО (Модалка) */
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 50; justify-content: center; align-items: flex-end; }
+        .modal-content { background: #ffffff; width: 100%; border-radius: 24px 24px 0 0; padding: 24px 20px 40px 20px; position: relative; animation: slideUp 0.3s ease-out; max-height: 85vh; overflow-y: auto; }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        
+        .close-btn { position: absolute; top: 16px; right: 16px; background: #f3f4f6; border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 18px; color: #4b5563; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 10;}
+        
+        .modal-img { width: 100%; aspect-ratio: 4/3; object-fit: cover; border-radius: 12px; margin-bottom: 16px; background: #e5e7eb; }
+        .modal-title { font-size: 22px; font-weight: 700; margin: 0 0 8px 0; }
+        .modal-price { font-size: 20px; font-weight: 700; color: #2563eb; margin: 0 0 16px 0; }
+        
+        .specs-box { background: #f9fafb; padding: 12px; border-radius: 12px; margin-bottom: 16px; }
+        .specs-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; }
+        .specs-row:last-child { margin-bottom: 0; }
+        .specs-label { color: #6b7280; }
+        .specs-val { font-weight: 500; text-align: right; max-width: 60%; }
+        
+        .telegraph-btn { display: block; text-align: center; background: #eff6ff; color: #2563eb; text-decoration: none; padding: 14px; border-radius: 12px; font-weight: 600; margin-bottom: 10px; font-size: 15px;}
+        .loading { grid-column: span 2; text-align: center; color: #6b7280; padding: 40px 0; }
     </style>
 </head>
 <body>
@@ -55,6 +47,28 @@
     <h1>Каталог Samura</h1>
     <div id="catalog" class="grid">
         <div class="loading">Загрузка каталога...</div>
+    </div>
+
+    <div id="modal" class="modal-overlay" onclick="closeModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <button class="close-btn" onclick="closeModal(event)">✕</button>
+            <img id="m-img" class="modal-img" src="" onerror="this.style.display='none'">
+            <h2 id="m-title" class="modal-title">Название</h2>
+            <p id="m-price" class="modal-price">Цена</p>
+            
+            <div class="specs-box">
+                <div class="specs-row">
+                    <span class="specs-label">Размеры:</span>
+                    <span id="m-specs" class="specs-val">-</span>
+                </div>
+                <div class="specs-row">
+                    <span class="specs-label">Механизм:</span>
+                    <span id="m-mech" class="specs-val">-</span>
+                </div>
+            </div>
+
+            <a id="m-link" href="#" target="_blank" class="telegraph-btn">📖 Полный обзор и фото</a>
+        </div>
     </div>
 
     <script>
@@ -72,13 +86,10 @@
                 const response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
                     headers: { 'X-Access-Key': ACCESS_KEY }
                 });
-
                 if (!response.ok) throw new Error("Ошибка связи");
 
-                const jsonResponse = await response.json();
-                const data = jsonResponse.record;
+                const data = (await response.json()).record;
                 const container = document.getElementById('catalog');
-                
                 container.innerHTML = '';
 
                 if (!data.products || data.products.length === 0) {
@@ -91,39 +102,60 @@
                     card.className = 'card';
                     const priceStr = prod.price.toString().replace(/[^0-9]/g, '');
                     
-                    // Фото загружаются с твоего GitHub по ID товара
                     card.innerHTML = `
                         <div class="img-box">
-                            <span class="no-photo">📸 Нет фото</span>
                             <img src="${prod.id}.jpg" onerror="this.style.display='none'">
                         </div>
                         <div class="info">
                             <h2 class="title">${prod.name}</h2>
-                            <p class="specs">${prod.specs || 'Размеры уточняются'}</p>
                             <p class="price">${prod.price}</p>
                         </div>
                     `;
                     
-                    // Клик по карточке выделяет её синей рамкой
-                    card.onclick = () => selectProduct(prod.id, prod.name, priceStr, card);
+                    // Передаем все данные в функцию открытия модалки
+                    card.onclick = () => openModal(prod.id, prod.name, priceStr, prod.specs, prod.mechanism, prod.telegraph_link);
                     container.appendChild(card);
                 });
             } catch (e) {
-                document.getElementById('catalog').innerHTML = `<div class="loading" style="color:#ef4444;">Ошибка загрузки. Проверьте ключи.</div>`;
+                document.getElementById('catalog').innerHTML = `<div class="loading" style="color:#ef4444;">Ошибка загрузки каталога.</div>`;
             }
         }
 
-        function selectProduct(id, name, price, cardElement) {
-            // Убираем рамки со всех карточек и ставим на выбранную
-            document.querySelectorAll('.card').forEach(c => c.style.borderColor = 'transparent');
-            cardElement.style.borderColor = '#2563eb';
-
-            selectedProduct = { id, product_name: name, price };
+        function openModal(id, name, price, specs, mech, link) {
+            selectedProduct = { id, product_name: name, price: price };
             
-            tg.MainButton.text = `ОФОРМИТЬ ЗАКАЗ: ${name}`;
+            // Заполняем всплывающее окно
+            const imgEl = document.getElementById('m-img');
+            imgEl.src = `${id}.jpg`;
+            imgEl.style.display = 'block'; // Показываем, если скрыли ранее из-за ошибки
+            
+            document.getElementById('m-title').innerText = name;
+            document.getElementById('m-price').innerText = price + ' ₽';
+            document.getElementById('m-specs').innerText = specs || 'Уточняются';
+            document.getElementById('m-mech').innerText = mech || 'Не указан';
+            
+            const linkBtn = document.getElementById('m-link');
+            if(link && link !== "None" && link.startsWith("http")) {
+                linkBtn.style.display = 'block';
+                linkBtn.href = link;
+            } else {
+                linkBtn.style.display = 'none'; // Скрываем кнопку, если ссылки нет
+            }
+            
+            document.getElementById('modal').style.display = 'flex';
+            
+            // Показываем кнопку Telegram только когда открыто окно товара
+            tg.MainButton.text = `ВЫБРАТЬ: ${name}`;
             tg.MainButton.color = "#2563eb";
             tg.MainButton.textColor = "#ffffff";
             tg.MainButton.show();
+        }
+
+        function closeModal(event) {
+            // Закрываем окно и прячем кнопку Telegram
+            document.getElementById('modal').style.display = 'none';
+            selectedProduct = null;
+            tg.MainButton.hide();
         }
 
         tg.MainButton.onClick(() => {
